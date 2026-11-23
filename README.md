@@ -1,6 +1,6 @@
 # Sistema de Inventario Tecnológico
 
-Organización: Preparatoria Cobach (ficticia)
+Organización: Preparatoria Cobach (datos de ejemplo ficticios)
 
 Equipo 4, Servidores II, Universidad de Sonora. Autor: Diego Leyva Mendoza
 
