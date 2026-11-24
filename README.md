@@ -23,6 +23,15 @@ Ubuntu Server con Docker, Docker Compose y Git.
 
 ## Componentes
 
-- Imagen de la aplicación: `diegoleyva/inventario-app:1.0` (Docker Hub)
+- Imagen de la aplicación: `diegoleyva/inventario-app:1.1` (Docker Hub)
 - Validación automática: `Jenkinsfile` (Jenkins)
 - El archivo `.env` real nunca se sube al repositorio
+
+## Acceso a la aplicación
+
+La aplicación pide iniciar sesión y tiene dos perfiles:
+
+- **Administrador:** puede consultar, registrar, editar y eliminar equipos.
+- **Solo lectura:** únicamente puede consultar el inventario.
+
+Las contraseñas se definen en el archivo `.env` (`ADMIN_PASSWORD` y `VIEWER_PASSWORD`), nunca en el código. La ruta `/salud` es pública porque la usa Jenkins.
