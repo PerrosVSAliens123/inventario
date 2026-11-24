@@ -29,7 +29,7 @@ services:
 
   # --- Capa de aplicación: Flask servido con Gunicorn ---
   app:
-    image: diegoleyva/inventario-app:1.0
+    image: diegoleyva/inventario-app:1.1
     restart: unless-stopped
     environment:
       DB_HOST: db
@@ -37,6 +37,9 @@ services:
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       ORGANIZACION: ${ORGANIZACION:-Universidad de Sonora}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       db:
         condition: service_healthy

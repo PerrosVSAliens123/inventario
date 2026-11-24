@@ -21,7 +21,7 @@ pipeline {
         sh 'grep -Eq "^ +app:" compose.yaml'
         sh 'grep -Eq "^ +db:" compose.yaml'
         sh 'grep -q "healthcheck:" compose.yaml'
-        sh 'grep -q "image: .*/inventario-app:1.0" compose.yaml'
+        sh 'grep -Eq "image: .*/inventario-app:[0-9]+[.][0-9]+" compose.yaml'
       }
     }
     stage('Historial en Git') {
@@ -32,6 +32,11 @@ pipeline {
     stage('Sistema disponible') {
       steps {
         sh 'curl -fsS http://nginx/salud'
+      }
+    }
+    stage('Acceso protegido') {
+      steps {
+        sh 'test "$(curl -s -o /dev/null -w "%{http_code}" http://nginx/)" = "302"'
       }
     }
   }

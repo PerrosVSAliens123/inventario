@@ -1,19 +1,28 @@
 """
 Sistema de Inventario Tecnológico - Servidores II (UNISON)
 Aplicación Flask que registra, consulta, edita y elimina equipos en MySQL.
-La configuración de conexión se lee de variables de entorno (archivo .env).
+Incluye inicio de sesión con dos roles: administrador (control total)
+y lector (solo consulta). La configuración se lee de variables de entorno (.env).
 """
+import hmac
 import os
 import re
 import socket
+from functools import wraps
 
 import pymysql
-from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
+from flask import (Flask, flash, jsonify, redirect, render_template, request,
+                   session, url_for)
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "servidores-ii")
+app.secret_key = os.getenv("SECRET_KEY") or "servidores-ii"
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 CAMPOS = ["nombre", "tipo", "marca", "numero_serie", "ubicacion", "estado"]
+
+# Rol -> variable de entorno donde vive su contraseña (nunca en el código)
+CLAVES = {"admin": "ADMIN_PASSWORD", "lector": "VIEWER_PASSWORD"}
+RUTAS_PUBLICAS = {"login", "salud", "static"}
 
 
 def conectar():
@@ -46,14 +55,60 @@ def opciones_enum(columna):
 
 @app.context_processor
 def datos_servidor():
-    """Muestra la organización y qué contenedor atendió la petición."""
+    """Muestra la organización, el contenedor que atendió y el rol activo."""
     return {"contenedor": socket.gethostname(), "db_host": os.getenv("DB_HOST", "db"),
-            "organizacion": os.getenv("ORGANIZACION", "Universidad de Sonora")}
+            "organizacion": os.getenv("ORGANIZACION", "Universidad de Sonora"),
+            "rol": session.get("rol"), "es_admin": session.get("rol") == "admin"}
+
+
+@app.before_request
+def exigir_sesion():
+    """Todo requiere sesión, salvo /login, /salud (la usa Jenkins) y los estáticos."""
+    if request.endpoint in RUTAS_PUBLICAS:
+        return None
+    if session.get("rol") not in CLAVES:
+        return redirect(url_for("login"))
+    return None
+
+
+def solo_admin(vista):
+    """Protege en el servidor las rutas que modifican datos."""
+    @wraps(vista)
+    def envoltura(*args, **kwargs):
+        if session.get("rol") != "admin":
+            flash("Tu perfil es de solo lectura: no tienes permiso para esa acción.", "error")
+            return redirect(url_for("inicio"))
+        return vista(*args, **kwargs)
+    return envoltura
 
 
 @app.errorhandler(pymysql.err.OperationalError)
 def error_bd(error):
     return render_template("error.html", detalle=str(error)), 503
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("rol") in CLAVES:
+        return redirect(url_for("inicio"))
+    if request.method == "POST":
+        rol = request.form.get("rol", "")
+        clave = request.form.get("clave", "")
+        esperada = os.getenv(CLAVES[rol], "") if rol in CLAVES else ""
+        if esperada and hmac.compare_digest(clave.encode(), esperada.encode()):
+            session.clear()
+            session["rol"] = rol
+            flash("Sesión iniciada correctamente.", "ok")
+            return redirect(url_for("inicio"))
+        flash("Contraseña incorrecta.", "error")
+    return render_template("login.html")
+
+
+@app.route("/salir")
+def salir():
+    session.clear()
+    flash("Sesión cerrada.", "ok")
+    return redirect(url_for("login"))
 
 
 @app.route("/")
@@ -71,6 +126,7 @@ def leer_formulario():
 
 
 @app.route("/nuevo", methods=["GET", "POST"])
+@solo_admin
 def nuevo():
     if request.method == "POST":
         datos, faltantes = leer_formulario()
@@ -94,6 +150,7 @@ def nuevo():
 
 
 @app.route("/editar/<int:id_equipo>", methods=["GET", "POST"])
+@solo_admin
 def editar(id_equipo):
     if request.method == "POST":
         datos, faltantes = leer_formulario()
@@ -124,6 +181,7 @@ def editar(id_equipo):
 
 
 @app.route("/eliminar/<int:id_equipo>", methods=["POST"])
+@solo_admin
 def eliminar(id_equipo):
     with conectar() as cx, cx.cursor() as cur:
         cur.execute("DELETE FROM equipos WHERE id=%s", (id_equipo,))
@@ -134,7 +192,7 @@ def eliminar(id_equipo):
 
 @app.route("/salud")
 def salud():
-    """Punto de verificación usado en las prácticas de automatización y respaldo."""
+    """Punto de verificación usado en las prácticas de automatización y respaldo (público)."""
     try:
         with conectar() as cx, cx.cursor() as cur:
             cur.execute("SELECT COUNT(*) AS total FROM equipos")

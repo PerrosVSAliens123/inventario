@@ -2,13 +2,13 @@
 {% block contenido %}
 <div class="tarjeta">
   <div class="barra">
-    <h2 style="margin:0">Equipos registrados ({{ equipos|length }})</h2>
-    <a class="btn" href="{{ url_for('nuevo') }}">+ Registrar equipo</a>
+    <h2 style="margin:0;color:#7c2d12">Equipos registrados ({{ equipos|length }})</h2>
+    {% if es_admin %}<a class="btn verde" href="{{ url_for('nuevo') }}">+ Registrar equipo</a>{% endif %}
   </div>
   <div class="tabla-scroll">
   <table>
     <thead>
-      <tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Marca</th><th>N.º de serie</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr>
+      <tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Marca</th><th>N.º de serie</th><th>Ubicación</th><th>Estado</th>{% if es_admin %}<th>Acciones</th>{% endif %}</tr>
     </thead>
     <tbody>
     {% for e in equipos %}
@@ -19,16 +19,18 @@
         <td>{{ e.marca }}</td>
         <td>{{ e.numero_serie }}</td>
         <td>{{ e.ubicacion }}</td>
-        <td><span class="estado {{ e.estado.split(' ')[0] }}">{{ e.estado }}</span></td>
+        <td><span class="estado est-{{ e.estado|lower|replace(' ', '-') }}">{{ e.estado }}</span></td>
+        {% if es_admin %}
         <td class="acciones">
           <a class="btn chico sec" href="{{ url_for('editar', id_equipo=e.id) }}">Editar</a>
-          <form method="post" action="{{ url_for('eliminar', id_equipo=e.id) }}">
+          <form method="post" action="{{ url_for('eliminar', id_equipo=e.id) }}" onsubmit="return confirm('¿Eliminar este equipo?')">
             <button class="btn chico peligro" type="submit">Eliminar</button>
           </form>
         </td>
+        {% endif %}
       </tr>
     {% else %}
-      <tr><td colspan="8">No hay equipos registrados.</td></tr>
+      <tr><td colspan="{{ 8 if es_admin else 7 }}">No hay equipos registrados.</td></tr>
     {% endfor %}
     </tbody>
   </table>
